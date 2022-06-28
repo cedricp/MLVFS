@@ -334,8 +334,9 @@ static int webgui_handler(struct mg_connection *conn, enum mg_event ev)
             
             mg_printf_data(conn, "%s", "{\"success\": true}");
         }
-        else if (strcmp(conn->uri, "data/jquery-1.12.0.min.js") == 0)
+        else if (strcmp(conn->uri, "/jquery-1.12.0.min.js") == 0)
         {
+            printf("OK loadinf ajax/n");
             if (load_resource(&JQUERY, "data/jquery-1.12.0.min.js"))
             {
 				mg_send_header(conn, "Content-Type", "text/javascript");
@@ -369,6 +370,7 @@ static int webgui_handler(struct mg_connection *conn, enum mg_event ev)
         }
         else
         {
+            printf(">> %s\n", conn->uri);
             char * html = webgui_generate_html(conn->uri);
             if(html)
             {
