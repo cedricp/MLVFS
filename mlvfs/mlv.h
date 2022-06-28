@@ -21,15 +21,17 @@
 #ifndef _mlv_h_
 #define _mlv_h_
 
+#include "raw.h"
+
 #define MLV_VERSION_STRING "v2.0"
 #define MLV_VIDEO_CLASS_RAW          0x01
 #define MLV_VIDEO_CLASS_YUV          0x02
 #define MLV_VIDEO_CLASS_JPEG         0x03
 #define MLV_VIDEO_CLASS_H264         0x04
 
-#define MLV_VIDEO_CLASS_FLAG_LJ92    0x100
 #define MLV_VIDEO_CLASS_FLAG_LZMA    0x80
 #define MLV_VIDEO_CLASS_FLAG_DELTA   0x40
+#define MLV_VIDEO_CLASS_FLAG_LJ92    0x20
 
 #define MLV_AUDIO_CLASS_FLAG_LZMA    0x80
 
@@ -89,8 +91,42 @@ typedef struct {
     uint64_t    timestamp;    /* hardware counter timestamp for this frame (relative to recording start) */
     uint16_t    xRes;    /* Configured video resolution, may differ from payload resolution */
     uint16_t    yRes;    /* Configured video resolution, may differ from payload resolution */
-    struct raw_info    raw_info;    /* the raw_info structure delivered by raw.c of ML Core */
+    struct raw_info raw_info;    /* the raw_info structure delivered by raw.h of ML Core */
 }  mlv_rawi_hdr_t;
+
+typedef struct {
+    uint8_t     blockType[4];   /* RAWC - raw image capture information */
+    uint32_t    blockSize;      /* sizeof(mlv_rawc_hdr_t) */
+    uint64_t    timestamp;      /* hardware counter timestamp */
+
+    /* see struct raw_capture_info from raw.h */
+
+    /* sensor attributes: resolution, crop factor */
+    uint16_t sensor_res_x;      /* sensor resolution */
+    uint16_t sensor_res_y;      /* 2-3 GPixel cameras anytime soon? (to overflow this) */
+    uint16_t sensor_crop;       /* sensor crop factor x100 */
+    uint16_t reserved;          /* reserved for future use */
+
+    /* video mode attributes */
+    /* (how the sensor is configured for image capture) */
+    /* subsampling factor: (binning_x+skipping_x) x (binning_y+skipping_y) */
+    uint8_t  binning_x;         /* 3 (1080p and 720p); 1 (crop, zoom) */
+    uint8_t  skipping_x;        /* so far, 0 everywhere */
+    uint8_t  binning_y;         /* 1 (most cameras in 1080/720p; also all crop modes); 3 (5D3 1080p); 5 (5D3 720p) */
+    uint8_t  skipping_y;        /* 2 (most cameras in 1080p); 4 (most cameras in 720p); 0 (5D3) */
+    int16_t  offset_x;          /* crop offset (top-left active pixel) - optional (SHRT_MIN if unknown) */
+    int16_t  offset_y;          /* relative to top-left active pixel from a full-res image (FRSP or CR2) */
+
+    /* The captured *active* area (raw_info.active_area) will be mapped
+     * on a full-res image (which does not use subsampling) as follows:
+     *   active_width  = raw_info.active_area.x2 - raw_info.active_area.x1
+     *   active_height = raw_info.active_area.y2 - raw_info.active_area.y1
+     *   .x1 (left)  : offset_x + full_res.active_area.x1
+     *   .y1 (top)   : offset_y + full_res.active_area.y1
+     *   .x2 (right) : offset_x + active_width  * (binning_x+skipping_x) + full_res.active_area.x1
+     *   .y2 (bottom): offset_y + active_height * (binning_y+skipping_y) + full_res.active_area.y1
+     */
+}  mlv_rawc_hdr_t;
 
 typedef struct {
     uint8_t     blockType[4];    /* when audioClass is WAV, this block contains format details  compatible to RIFF */
@@ -129,6 +165,21 @@ typedef struct {
     uint8_t     lensName[32];    /* full lens string */
     uint8_t     lensSerial[32]; /* full lens serial number */
 }  mlv_lens_hdr_t;
+
+typedef struct {
+    uint8_t     blockType[4];       /* ELNS - Extended LENS block with longer lens name and optional fields, depending on camera */
+    uint32_t    blockSize;
+    uint64_t    timestamp;
+    uint16_t    focalLengthMin;     /* shortest focal length in mm                       */
+    uint16_t    focalLengthMax;     /* longest focal length in mm                        */
+    uint16_t    apertureMin;        /* lowest f-number * 100                             */
+    uint16_t    apertureMax;        /* highest f-number * 100                            */
+    uint32_t    version;            /* lens internal version number, if available        */
+    uint8_t     extenderInfo;       /* extender information, if provided by camera       */
+    uint8_t     capabilities;       /* capability information, if provided by camera     */
+    uint8_t     chipped;            /* when not zero, lens is communicating with camera  */
+ /* uint8_t     lensName[variable];    full lens string, null terminated                 */
+}  mlv_elns_hdr_t;
 
 typedef struct {
     uint8_t     blockType[4];
@@ -232,34 +283,48 @@ typedef struct {
     uint32_t    blockSize;
     uint64_t    timestamp;
     uint32_t    type;       /* debug data type, for now 0 - text log */
-    uint32_t    length;     /* data can be of arbitrary length and blocks are padded to 32 bits, so store real length */
-    /* uint8_t     stringData[variable]; */
+    uint32_t    length;     /* to allow that data can be of arbitrary length and blocks are padded to 32 bits, so store real length */
+ /* uint8_t     stringData[variable]; */
 }  mlv_debg_hdr_t;
 
+typedef struct {
+    uint8_t     blockType[4];    /* VERS - Version information block, appears once per module */
+    uint32_t    blockSize;
+    uint64_t    timestamp;
+    uint32_t    length;     /* to allow that data can be of arbitrary length and blocks are padded to 32 bits, so store real length */
+ /* uint8_t     stringData[variable];  // Version string, e.g. "ml-core 20130912", "mlv_rec v2.1" or "mlv_lite 0d3fbdaf crop_rec_8k"
+                                       // general format "<module_name> <version_information>"
+                                       // where <module_name> must not contain spaces whereas <version_information> may be of any characters in UTF-8 format
+*/
+}  mlv_vers_hdr_t;
+
+typedef struct {
+    uint8_t     blockType[4];       /* DARK - contains essential settings' been active while recording and actual averaged frame data */
+    uint32_t    blockSize;          /* total block size */
+    uint64_t    timestamp;          /* for this block it is always max value of uint64_t */
+    uint32_t    samplesAveraged;    /* amount of samples (frames) have been averaged */
+    uint32_t    cameraModel;        /* PROP (0x00000002), offset 32, length 4 */
+    uint16_t    xRes;               /* dark frame width */
+    uint16_t    yRes;               /* dark frame height */
+    uint32_t    rawWidth;           /* raw buffer width */
+    uint32_t    rawHeight;          /* raw buffer height */
+    uint32_t    bits_per_pixel;     /* bits per pixel */
+    uint32_t    black_level;        /* autodetected */
+    uint32_t    white_level;        /* somewhere around 13000 - 16000, varies with camera, settings etc */
+    uint32_t    sourceFpsNom;       /* configured fps in 1/s multiplied by sourceFpsDenom */
+    uint32_t    sourceFpsDenom;     /* denominator for fps. usually set to 1000, but may be 1001 for NTSC */
+    uint32_t    isoMode;            /* 0=manual, 1=auto */
+    uint32_t    isoValue;           /* camera delivered ISO value */
+    uint32_t    isoAnalog;          /* ISO obtained by hardware amplification (most full-stop ISOs, except extreme values) */
+    uint32_t    digitalGain;        /* digital ISO gain (1024 = 1 EV) - it's not baked in the raw data, so you may want to scale it or adjust the white level */
+    uint64_t    shutterValue;       /* exposure time in microseconds */
+    uint8_t     binning_x;          /* 3 (1080p and 720p); 1 (crop, zoom) */
+    uint8_t     skipping_x;         /* so far, 0 everywhere */
+    uint8_t     binning_y;          /* 1 (most cameras in 1080/720p; also all crop modes); 3 (5D3 1080p); 5 (5D3 720p) */
+    uint8_t     skipping_y;         /* 2 (most cameras in 1080p); 4 (most cameras in 720p); 0 (5D3) */
+    /* uint8_t     frameData[variable]; */
+}  mlv_dark_hdr_t;
+
 #pragma pack(pop)
-
-/* helper routines for filling structures from generic camera information */
-void mlv_fill_rtci(mlv_rtci_hdr_t *hdr, uint64_t start_timestamp);
-void mlv_fill_expo(mlv_expo_hdr_t *hdr, uint64_t start_timestamp);
-void mlv_fill_lens(mlv_lens_hdr_t *hdr, uint64_t start_timestamp);
-void mlv_fill_idnt(mlv_idnt_hdr_t *hdr, uint64_t start_timestamp);
-void mlv_fill_wbal(mlv_wbal_hdr_t *hdr, uint64_t start_timestamp);
-void mlv_fill_styl(mlv_styl_hdr_t *hdr, uint64_t start_timestamp);
-
-/* randomize the 64 bits passed in parameter using LFSR */
-uint64_t mlv_prng_lfsr(uint64_t value);
-
-/* generate a 64 bit random number based on time of day and camera uptime */
-uint64_t mlv_generate_guid();
-
-/* fill file header with constant stuff */
-void mlv_init_fileheader(mlv_file_hdr_t *hdr);
-
-/* set the block type of a block. cares for string lengths. */
-void mlv_set_type(mlv_hdr_t *hdr, char *type);
-
-/* if hdr is non-null, set the timestamp field with the time since start (has to be passed as parameter).
-   returns current time since start. */
-uint64_t mlv_set_timestamp(mlv_hdr_t *hdr, uint64_t start);
 
 #endif

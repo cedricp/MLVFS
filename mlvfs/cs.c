@@ -366,7 +366,7 @@ static struct focus_pixel_map * load_focus_pixel_map(uint32_t camera_id, int wid
         map->capacity = 0;
         map->pixels = NULL;
         char filename[1024];
-        sprintf(filename, "%x_%ix%i.fpm", camera_id, width, height);
+        sprintf(filename, "data/%x_%ix%i.fpm", camera_id, width, height);
         FILE* f = fopen(filename, "r+");
         if(f)
         {
@@ -391,6 +391,8 @@ static struct focus_pixel_map * load_focus_pixel_map(uint32_t camera_id, int wid
                 }
             }
             return map;
+        } else {
+            printf("Cannot load focus pixel map '%s'...\n", filename);
         }
     }
     else

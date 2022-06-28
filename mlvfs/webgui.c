@@ -334,9 +334,9 @@ static int webgui_handler(struct mg_connection *conn, enum mg_event ev)
             
             mg_printf_data(conn, "%s", "{\"success\": true}");
         }
-        else if (strcmp(conn->uri, "/jquery-1.12.0.min.js") == 0)
+        else if (strcmp(conn->uri, "data/jquery-1.12.0.min.js") == 0)
         {
-            if (load_resource(&JQUERY, "jquery-1.12.0.min.js"))
+            if (load_resource(&JQUERY, "data/jquery-1.12.0.min.js"))
             {
 				mg_send_header(conn, "Content-Type", "text/javascript");
                 mg_printf_data(conn, "%s", JQUERY);
@@ -375,7 +375,7 @@ static int webgui_handler(struct mg_connection *conn, enum mg_event ev)
                 mg_send_header(conn, "Content-Type", "text/html");
                 mg_send_header(conn, "Cache-Control", "max-age=0, post-check=0, pre-check=0, no-store, no-cache, must-revalidate");
                 
-                if(load_resource(&HTML, "html_template.html"))
+                if(load_resource(&HTML, "data/html_template.html"))
                 {
                     mg_printf_data(conn, HTML, conn->uri, mlvfs_config->mlv_path, conn->uri, html, VERSION, BUILD_DATE);
                 }

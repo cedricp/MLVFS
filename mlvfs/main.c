@@ -570,6 +570,7 @@ size_t get_image_data(struct frame_headers * frame_headers, FILE * file, uint8_t
 {
     int lzma_compressed = frame_headers->file_hdr.videoClass & MLV_VIDEO_CLASS_FLAG_LZMA;
     int lj92_compressed = frame_headers->file_hdr.videoClass & MLV_VIDEO_CLASS_FLAG_LJ92;
+
     size_t result = 0;
     int bpp = frame_headers->rawi_hdr.raw_info.bits_per_pixel;
     uint64_t pixel_start_index = MAX(0, offset) / 2; //lets hope offsets are always even for now
@@ -580,10 +581,12 @@ size_t get_image_data(struct frame_headers * frame_headers, FILE * file, uint8_t
     if(lzma_compressed || lj92_compressed)
     {
         file_set_pos(file, frame_headers->position + frame_headers->vidf_hdr.frameSpace + sizeof(mlv_vidf_hdr_t), SEEK_SET);
-        size_t frame_size = frame_headers->vidf_hdr.blockSize - (frame_headers->vidf_hdr.frameSpace + sizeof(mlv_vidf_hdr_t));
+        size_t frame_size = frame_headers->vidf_hdr.blockSize - frame_headers->vidf_hdr.frameSpace + sizeof(mlv_vidf_hdr_t);
+
         uint8_t * frame_buffer = malloc(frame_size);
         if (!frame_buffer)
         {
+            err_printf("framebuffer malloc failed!\n");
             return 0;
         }
         
@@ -616,71 +619,39 @@ size_t get_image_data(struct frame_headers * frame_headers, FILE * file, uint8_t
             }
             else if(lj92_compressed)
             {
-                lj92 handle;
+                int ret;
+                lj92 lj92_handle;
                 int lj92_width = 0;
                 int lj92_height = 0;
                 int lj92_bitdepth = 0;
+                int lj92_components = 1;
                 int video_xRes = frame_headers->rawi_hdr.xRes;
                 int video_yRes = frame_headers->rawi_hdr.yRes;
+
+                ret = lj92_open(&lj92_handle, (uint8_t *)&frame_buffer[0], (int)frame_size , &lj92_width, &lj92_height, &lj92_bitdepth, &lj92_components);
+                size_t out_size = lj92_width * lj92_height * lj92_components;
                 
-                int ret = lj92_open(&handle, (uint8_t *)&frame_buffer[4], (int)frame_size - 4, &lj92_width, &lj92_height, &lj92_bitdepth);
-                
-                size_t out_size_stored = *(uint32_t *)frame_buffer;
-                size_t out_size = lj92_width * lj92_height * sizeof(uint16_t);
-                
-                if(out_size != out_size_stored)
-                {
-                    err_printf("LJ92: non-critical internal error occurred: frame size mismatch (%d != %d)\n", (uint32_t)out_size, (uint32_t)out_size_stored);
-                }
+                // err_printf("LJ92: non-critical internal error occurred: frame size mismatch (%ix%i) (framesize=%d/%d) (bpp=%d)\n", lj92_width, lj92_height, frame_size, out_size, lj92_bitdepth);
                 
                 if(ret == LJ92_ERROR_NONE)
                 {
-                    /* we need a temporary buffer so we dont overwrite source data */
-                    uint16_t *decompressed = malloc(out_size);
-                    if (!decompressed)
-                    {
-                        free(frame_buffer);
-                        err_printf("LJ92 malloc failed!\n");
-                        return 0;
-                    }
+                    ret = lj92_decode(lj92_handle, output_buffer, out_size, 0, NULL, 0);
                     
-                    ret = lj92_decode(handle, decompressed, lj92_width * lj92_height, 0, NULL, 0);
-                    
-                    if(ret == LJ92_ERROR_NONE)
-                    {
-                        /* restore 16bpp pixel data and untile if necessary */
-                        //uint32_t shift_value = MIN(16,MAX(0, 16 - lj92_bitdepth));
-                        uint16_t *dst_buf = (uint16_t *)output_buffer;
-                        uint16_t *src_buf = (uint16_t *)decompressed;
-                        
-                        for(int y = 0; y < video_yRes; y++)
-                        {
-                            int dst_y = ((2 * y) % video_yRes) + ((2 * y) / video_yRes);
-                            
-                            uint16_t *src_line = &src_buf[y * video_xRes];
-                            uint16_t *dst_line = &dst_buf[dst_y * video_xRes];
-                            
-                            for(int x = 0; x < video_xRes; x++)
-                            {
-                                int dst_x = ((2 * x) % video_xRes) + ((2 * x) / video_xRes);
-                                dst_line[dst_x] = src_line[x];
-                            }
-                        }
-                        
-                        free(decompressed);
-                    }
-                    else
+                    if(ret != LJ92_ERROR_NONE)
                     {
                         err_printf("LJ92: Failed (%d)\n", ret);
                     }
                 }
                 else
                 {
-                    err_printf("LJ92: Failed (%d)\n", ret);
+                    err_printf("LJ92: Open failed (%d)\n", ret);
                 }
+                result = ret;
+                lj92_close(lj92_handle);
             }
         }
         free(frame_buffer);
+        frame_buffer = NULL;
     }
     else
     {
