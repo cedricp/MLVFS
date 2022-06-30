@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 PROJECT(mlvfs)
 
-FILE(GLOB SOURCES dng.c index.c wav.c stripes.c cs.c amaze_demosaic_RT.c hdr.c histogram.c webgui.c resource_manager.c lj92.c gif.c patternnoise.c main.c)
+FILE(GLOB SOURCES dng.c index.c wav.c stripes.c cs.c amaze_demosaic_RT.c hdr.c histogram.c webgui.c resource_manager.c gif.c patternnoise.c main.c aces.cpp)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
 
@@ -10,7 +10,10 @@ EXECUTE_PROCESS(COMMAND git describe --long --dirty --always --tags OUTPUT_VARIA
 STRING(REGEX REPLACE "\n$" "" GIT_VERSION ${GIT_VERSION})
 
 FIND_PACKAGE(OpenMP REQUIRED)
-FIND_PACKAGE(FUSE REQUIRED)
+FIND_PACKAGE(Fuse REQUIRED)
+FIND_PACKAGE(IlmBase REQUIRED)
+FIND_PACKAGE(Eigen3 REQUIRED)
+FIND_PACKAGE(LibRaw REQUIRED)
 
 ADD_COMPILE_DEFINITIONS(VERSION="${GIT_VERSION}" _FILE_OFFSET_BITS=64 FUSE_USE_VERSION=26)
 
@@ -20,15 +23,22 @@ SET (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 SET (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif()
 
+ADD_SUBDIRECTORY(aces_container)
+ADD_SUBDIRECTORY(aces_idt)
 ADD_SUBDIRECTORY(mongoose)
 ADD_SUBDIRECTORY(LZMA)
 ADD_SUBDIRECTORY(slre)
 ADD_SUBDIRECTORY(lj92)
 
-SET (EXT_LIBS pthread m ${FUSE_LIBRARIES})
+
+MESSAGE(NOTICE "IlmBase include: ${IlmBase_INCLUDE_DIRS}")
+MESSAGE(NOTICE "IlmBase libraries : ${IlmBase_LIBRARY}")
+
+SET (EXTERNAL_LIBRARIES pthread m ${FUSE_LIBRARIES} ${IlmBase_LIBRARY} ${LibRaw_LIBRARIES})
 
 ADD_EXECUTABLE(mlvfs ${SOURCES})
 SET_PROPERTY(TARGET mlvfs PROPERTY C_STANDARD 99)
-TARGET_LINK_LIBRARIES(mlvfs mongoose lzma slre lj92 ${EXT_LIBS})
+TARGET_INCLUDE_DIRECTORIES(mlvfs PUBLIC ./ ${IlmBase_INCLUDE_DIRS} ${LibRaw_INCLUDE_DIR})
+TARGET_LINK_LIBRARIES(mlvfs mongoose lzma slre lj92 aces_container aces_idt ${EXTERNAL_LIBRARIES})
 
 INSTALL(TARGETS mlvfs RUNTIME DESTINATION bin)

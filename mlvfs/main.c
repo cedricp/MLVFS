@@ -44,11 +44,12 @@
 #include "resource_manager.h"
 #include "mlvfs.h"
 #include "LZMA/LzmaLib.h"
-#include "lj92.h"
+#include "lj92/lj92.h"
 #include "gif.h"
 #include "histogram.h"
 #include "patternnoise.h"
 #include "slre/slre.h"
+#include "aces.h"
 
 static struct mlvfs mlvfs;
 
@@ -882,7 +883,7 @@ static int process_frame(struct image_buffer * image_buffer)
     char * path_in_mlv = NULL;
     const char * path = image_buffer->dng_filename;
     
-    if(string_ends_with(path, ".dng") && mlvfs_resolve_path(path, &mlv_filename, &path_in_mlv))
+    if((string_ends_with(path, ".dng") || string_ends_with(path, ".exr")) && mlvfs_resolve_path(path, &mlv_filename, &path_in_mlv))
     {
         int frame_number = get_mlv_frame_number(path);
         struct frame_headers frame_headers;
@@ -971,7 +972,13 @@ static int process_frame(struct image_buffer * image_buffer)
         }
         free(mlv_filename);
         free(path_in_mlv);
+
+        if ( string_ends_with(path, ".exr") )
+        {
+            process_aces(&frame_headers, image_buffer, mlv_filename);
+        }
     }
+
     return 1;
 }
 
@@ -1183,7 +1190,8 @@ static int mlvfs_getattr(const char *path, struct FUSE_STAT *stbuf)
                     }
                     else if (string_ends_with(path_in_mlv, ".exr"))
                     {
-                        stbuf->st_size = dng_get_size(&frame_headers);
+                        stbuf->st_size = exr_get_size(&frame_headers, mlv_filename);
+                        printf("%s %d\n", mlv_filename, stbuf->st_size);
                         register_dng_attr(mlv_filename, stbuf);
                     }
                     else if (string_ends_with(path_in_mlv, ".gif"))
