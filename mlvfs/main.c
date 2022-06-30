@@ -970,13 +970,14 @@ static int process_frame(struct image_buffer * image_buffer)
             mlvfs_close_chunks(chunk_files, chunk_count);
             free(mlv_basename);
         }
-        free(mlv_filename);
-        free(path_in_mlv);
 
         if ( string_ends_with(path, ".exr") )
         {
             process_aces(&frame_headers, image_buffer, mlv_filename);
         }
+
+        free(mlv_filename);
+        free(path_in_mlv);
     }
 
     return 1;
@@ -1191,7 +1192,6 @@ static int mlvfs_getattr(const char *path, struct FUSE_STAT *stbuf)
                     else if (string_ends_with(path_in_mlv, ".exr"))
                     {
                         stbuf->st_size = exr_get_size(&frame_headers, mlv_filename);
-                        printf("%s %d\n", mlv_filename, stbuf->st_size);
                         register_dng_attr(mlv_filename, stbuf);
                     }
                     else if (string_ends_with(path_in_mlv, ".gif"))
@@ -1436,7 +1436,7 @@ static int mlvfs_read(const char *path, char *buf, size_t size, FUSE_OFF_T offse
     /* if there is no handle, it must be a virtual file, or it is an already opened .dng */
     if (fi->fh || mlvfs_resolve_path(path, &mlv_filename, &path_in_mlv))
     {
-        if (fi->fh || (string_ends_with(path_in_mlv, ".dng") || string_ends_with(path_in_mlv, ".exr")))
+        if (fi->fh || (string_ends_with(path_in_mlv, ".dng")))
         {
             size_t header_size = dng_get_header_size();
             size_t remaining = 0;
@@ -1502,6 +1502,35 @@ static int mlvfs_read(const char *path, char *buf, size_t size, FUSE_OFF_T offse
                 memcpy(image_output_buf, ((uint8_t*)image_buffer->data) + image_offset, MIN(read_size - remaining, image_buffer->size - image_offset));
             }
             
+            free(mlv_filename);
+            free(path_in_mlv);
+            return (int)read_size;
+        }
+        else if (string_ends_with(path_in_mlv, ".exr"))
+        {
+            int was_created;
+            struct image_buffer * image_buffer = get_or_create_image_buffer(path, &process_frame, &was_created);
+            if (!image_buffer)
+            {
+                err_printf("GIF image_buffer is NULL\n");
+                free(mlv_filename);
+                free(path_in_mlv);
+                return 0;
+            }
+            if (!image_buffer->data)
+            {
+                err_printf("GIF image_buffer->data is NULL\n");
+                free(mlv_filename);
+                free(path_in_mlv);
+                return 0;
+            }
+
+            /* ensure that reads with offset beyond end will not cause negative memcpy sizes */
+            long read_offset = MAX(0, MIN(offset, image_buffer->size));
+            long read_size = MAX(0, MIN(size, image_buffer->size - read_offset));
+
+            memcpy(buf, ((uint8_t*)image_buffer->data) + read_offset, read_size);
+            release_image_buffer(image_buffer);
             free(mlv_filename);
             free(path_in_mlv);
             return (int)read_size;

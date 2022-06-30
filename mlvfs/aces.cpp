@@ -27,8 +27,32 @@ static void mulVectorArray ( uint16_t * data_in,
 
 extern "C" size_t exr_get_size(struct frame_headers * frame_headers, const char* name)
 {
-    size_t outsize = frame_headers->rawi_hdr.yRes * (8 + 2 * 4 + frame_headers->rawi_hdr.xRes * 3 * 2) + 1100000;	
-    return outsize;
+    vector < std::string > filenames;
+    filenames.push_back(name);
+
+    aces_Writer writer;
+
+    MetaWriteClip writeParams;
+    writeParams.duration				= 1;
+    writeParams.outputFilenames			= filenames;
+    writeParams.outputRows				= frame_headers->rawi_hdr.yRes;
+    writeParams.outputCols				= frame_headers->rawi_hdr.xRes;
+    writeParams.hi = writer.getDefaultHeaderInfo();
+    writeParams.hi.originalImageFlag	= 1;
+
+    writeParams.hi.channels.resize(3);
+    writeParams.hi.channels[0].name = "B";
+    writeParams.hi.channels[1].name = "G";
+    writeParams.hi.channels[2].name = "R";
+
+    DynamicMetadata dynamicMeta;
+    dynamicMeta.imageIndex = 0;
+    dynamicMeta.imageCounter = 0;
+
+    writer.configure ( writeParams );
+    writer.newImageObject ( dynamicMeta );
+
+    return writer.getOutputFileSize();
 }
     /*
 	# - Debayer method
@@ -55,7 +79,8 @@ extern "C" void process_aces(struct frame_headers * frame_headers, struct image_
 	}
     
     if(raw_processor->unpack() != LIBRAW_SUCCESS){
-		printf("Unpack error\n");
+		printf("Libraw unpack error\n");
+        return;
 	}
 
     	// XYZ colorspace
@@ -82,6 +107,9 @@ extern "C" void process_aces(struct frame_headers * frame_headers, struct image_
 		printf("make mem image error\n");
 		return;
 	}
+
+    free(image_buffer->header);
+    image_buffer->header = NULL;
     
     vector < vector < double > > idt_matrix;
 	DNGIdt dngidt = DNGIdt(raw_processor->imgdata.rawdata);
@@ -95,10 +123,10 @@ extern "C" void process_aces(struct frame_headers * frame_headers, struct image_
     
     mulVectorArray(in_buffer, out_buffer, pixel_count, 3, idt_matrix);
     
-    aces_Writer writer;
-
     vector < std::string > filenames;
     filenames.push_back("/home/cedric/Desktop/test.exr");//name);
+
+    aces_Writer writer;
 
     MetaWriteClip writeParams;
     writeParams.duration				= 1;
@@ -107,9 +135,7 @@ extern "C" void process_aces(struct frame_headers * frame_headers, struct image_
     writeParams.outputCols				= frame_headers->rawi_hdr.xRes;
     writeParams.hi = writer.getDefaultHeaderInfo();
     writeParams.hi.originalImageFlag	= 1;
-    writeParams.hi.software				= "mlvfs";
 
-    writeParams.hi.channels.clear();
     writeParams.hi.channels.resize(3);
     writeParams.hi.channels[0].name = "B";
     writeParams.hi.channels[1].name = "G";
@@ -128,10 +154,10 @@ extern "C" void process_aces(struct frame_headers * frame_headers, struct image_
     }
 
     free(out_buffer);
-    free(image_buffer->header);
-    image_buffer->header_size = writer.getOutputFileSize();
-    image_buffer->size = 0;
-    image_buffer->header = (uint8_t*)writer.getExrBuffer();
-    image_buffer->data = (uint16_t*)(image_buffer->header);
-    writer.saveImageObject();
+    image_buffer->header_size = 0;
+    image_buffer->size = writer.getOutputFileSize();
+    image_buffer->header = NULL;
+    image_buffer->data = (uint16_t*)writer.getExrBuffer();
+
+    delete raw_processor;
 }

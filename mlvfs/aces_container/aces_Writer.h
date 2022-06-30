@@ -186,7 +186,12 @@ public:
 	~aces_Writer(); 
 
 	uint64 getOutputFileSize(){return outputFileSize;}
-	char* getExrBuffer(){char*buffer = pOutputBuffer;pOutputBuffer = NULL; return buffer;}
+	char* getExrBuffer(){
+		oef.setChecksums();
+		char* buffer = pOutputBuffer;
+		pOutputBuffer = NULL;
+		return buffer;
+	}
 	
 	//	=====================================================================
 	//	provides default header info
