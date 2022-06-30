@@ -31,6 +31,9 @@ default: $(EXEC)
 debug: CFLAGS += $(DEBUG)
 debug: $(EXEC)
 
+release: CFLAGS += -O3
+release: $(EXEC)
+
 $(EXEC): main.c $(OBJS) $(LZMA_OBJS)
 	$(CC) $(CFLAGS) $^ $(LIBS) -o $@
 

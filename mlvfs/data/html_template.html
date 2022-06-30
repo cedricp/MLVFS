@@ -62,6 +62,7 @@
                 $('#fps').val(d.fps);
                 $('#deflicker').val(d.deflicker);
                 $('input:radio[name="name_scheme"][value=' + d.name_scheme + ']').prop('checked', true);
+                $('input:radio[name="format_exr"][value=' + d.format_exr + ']').prop('checked', true);
                 $('input:radio[name="badpix"][value=' + d.badpix + ']').prop('checked', true);
                 $('input:radio[name="chroma_smooth"][value=' + d.chroma_smooth + ']').prop('checked', true);
                 $('input:radio[name="stripes"][value=' + d.stripes + ']').prop('checked', true);
@@ -93,6 +94,7 @@
                 data:
                 {
                     "name_scheme": $('input:radio[name=name_scheme]:checked').val(),
+                    "format_exr": $('input:radio[name=format_exr]:checked').val(),
                     "badpix": $('input:radio[name=badpix]:checked').val(),
                     "chroma_smooth": $('input:radio[name=chroma_smooth]:checked').val(),
                     "stripes": $('input:radio[name=stripes]:checked').val(),
@@ -170,6 +172,10 @@
                 <td>Naming Scheme</td>
                 <td><input type=radio name=name_scheme value=0>Default</input><input type=radio name=name_scheme value=1>DaVinci Resolve</input>
                 </td>
+            </tr>
+            <tr>
+                <td>EXR ACES</td>
+                <<td><input type=radio name=format_exr value=0>Off</input><input type=radio name=format_exr value=1>On</input>
             </tr>
             <tr>
                 <td>Deflicker</td>

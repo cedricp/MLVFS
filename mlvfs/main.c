@@ -635,7 +635,7 @@ size_t get_image_data(struct frame_headers * frame_headers, FILE * file, uint8_t
                 
                 if(ret == LJ92_ERROR_NONE)
                 {
-                    ret = lj92_decode(lj92_handle, output_buffer, out_size, 0, NULL, 0);
+                    ret = lj92_decode(lj92_handle, (uint16_t*)output_buffer, out_size, 0, NULL, 0);
                     
                     if(ret != LJ92_ERROR_NONE)
                     {
@@ -899,11 +899,11 @@ static int process_frame(struct image_buffer * image_buffer)
             }
             
             image_buffer->size = dng_get_image_size(&frame_headers);
-            image_buffer->data = (uint16_t*)malloc(image_buffer->size);
             image_buffer->header_size = dng_get_header_size();
-            image_buffer->header = (uint8_t*)malloc(image_buffer->header_size);
+            image_buffer->header = (uint8_t*)malloc(image_buffer->header_size + image_buffer->size);
+            image_buffer->data = (uint16_t*)(image_buffer->header + image_buffer->header_size);
             
-            char * mlv_basename = copy_string(image_buffer->dng_filename);
+            uint8_t* mlv_basename = copy_string(image_buffer->dng_filename);
             if(mlv_basename != NULL)
             {
                 char * dir = find_last_separator(mlv_basename);
@@ -1014,7 +1014,10 @@ static char *mlvfs_resolve_virtual(const char *path)
     {
         int is_in_mlv_root = (find_first_separator(path_in_mlv) == NULL);
         
-        if (is_in_mlv_root && !strstr(path,"/._") && (string_ends_with(path_in_mlv, ".dng") || string_ends_with(path_in_mlv, ".wav") || string_ends_with(path_in_mlv, ".gif") || string_ends_with(path_in_mlv, ".log")))
+        if ( is_in_mlv_root && !strstr(path,"/._") &&
+            ( string_ends_with(path_in_mlv, ".exr") || string_ends_with(path_in_mlv, ".dng" ) ||
+              string_ends_with(path_in_mlv, ".wav") || string_ends_with(path_in_mlv, ".gif" ) ||
+              string_ends_with(path_in_mlv, ".log") ) )
         {
             /* a DNG etc in the MLV root -> virtual */
             resolved_filename = NULL;
@@ -1124,7 +1127,7 @@ static int mlvfs_getattr(const char *path, struct FUSE_STAT *stbuf)
     /* so this must be a virtual file, fetch MLV name and path */
     if (mlvfs_resolve_path(path, &mlv_filename, &path_in_mlv))
     {
-        if (string_ends_with(path_in_mlv, ".dng") || string_ends_with(path_in_mlv, ".wav") || string_ends_with(path_in_mlv, ".gif") || string_ends_with(path_in_mlv, ".log"))
+        if (string_ends_with(path_in_mlv, ".exr") || string_ends_with(path_in_mlv, ".dng") || string_ends_with(path_in_mlv, ".wav") || string_ends_with(path_in_mlv, ".gif") || string_ends_with(path_in_mlv, ".log"))
         {
             /* if it's a file in root, all accesses to DNG, WAV, GIF and LOG are redirected */
             struct FUSE_STAT * dng_st = NULL;
@@ -1174,6 +1177,11 @@ static int mlvfs_getattr(const char *path, struct FUSE_STAT *stbuf)
 #endif
 
                     if (string_ends_with(path_in_mlv, ".dng"))
+                    {
+                        stbuf->st_size = dng_get_size(&frame_headers);
+                        register_dng_attr(mlv_filename, stbuf);
+                    }
+                    else if (string_ends_with(path_in_mlv, ".exr"))
                     {
                         stbuf->st_size = dng_get_size(&frame_headers);
                         register_dng_attr(mlv_filename, stbuf);
@@ -1284,7 +1292,11 @@ static int mlvfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, FU
                     int frame_count = mlv_get_frame_count(mlv_filename);
                     for (int i = 0; i < frame_count; i++)
                     {
-                        sprintf(filename, "%s_%06d.dng", mlv_basename, i);
+                        char* format = "dng";
+                        if (mlvfs.format_exr){
+                            format = "exr";
+                        }
+                        sprintf(filename, "%s_%06d.%s", mlv_basename, i, format);
                         filler(buf, filename, NULL, 0);
                     }
                     sprintf(filename, "_PREVIEW.gif");
@@ -1416,7 +1428,7 @@ static int mlvfs_read(const char *path, char *buf, size_t size, FUSE_OFF_T offse
     /* if there is no handle, it must be a virtual file, or it is an already opened .dng */
     if (fi->fh || mlvfs_resolve_path(path, &mlv_filename, &path_in_mlv))
     {
-        if (fi->fh || string_ends_with(path_in_mlv, ".dng"))
+        if (fi->fh || (string_ends_with(path_in_mlv, ".dng") || string_ends_with(path_in_mlv, ".exr")))
         {
             size_t header_size = dng_get_header_size();
             size_t remaining = 0;
@@ -1517,6 +1529,7 @@ static int mlvfs_read(const char *path, char *buf, size_t size, FUSE_OFF_T offse
             long read_size = MAX(0, MIN(size, image_buffer->size - read_offset));
 
             memcpy(buf, ((uint8_t*)image_buffer->data) + read_offset, read_size);
+            release_image_buffer(image_buffer);
             free(mlv_filename);
             free(path_in_mlv);
             return (int)read_size;
@@ -1607,7 +1620,7 @@ static int mlvfs_release(const char *path, struct fuse_file_info *fi)
     /* reset the cached image buffer pointer, if any */
     fi->fh = 0;
 
-    if (string_ends_with(path, ".dng") || string_ends_with(path, ".gif"))
+    if (string_ends_with(path, ".exr") ||string_ends_with(path, ".dng") || string_ends_with(path, ".gif"))
     {
         release_image_buffer_by_path(path);
     }
@@ -1826,7 +1839,8 @@ static const struct fuse_opt_ex mlvfs_opts_ex[] =
     MLVFS_OPTION("--mlv_dir=%s",        mlv_path,                 0, 0,
 "File/folder options"),
     MLVFS_OPTION("--mlv-dir=%s",        mlv_path,                 0, "Directory containing MLV files", 0),
-    MLVFS_OPTION("--resolve-naming",    name_scheme,              1, "DNG file names compatible with DaVinci Resolve",
+    MLVFS_OPTION("--exr",               format_exr,               1, "Use RAWtoACES EXR images", 0),
+    MLVFS_OPTION("--resolve-naming",    name_scheme,              1, "File names compatible with DaVinci Resolve",
 "Processing options"),
     MLVFS_OPTION("--cs2x2",             chroma_smooth,            2, "2x2 chroma smoothing", 0),
     MLVFS_OPTION("--cs3x3",             chroma_smooth,            3, "3x3 chroma smoothing", 0),

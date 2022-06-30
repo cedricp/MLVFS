@@ -254,7 +254,7 @@ static char * webgui_generate_html(const char * path)
                     else if (child->d_type == DT_UNKNOWN) // If d_type is not supported on this filesystem
                     {
                         struct stat file_stat;
-                        char real_file_path[1024];
+                        char real_file_path[2048];
                         sprintf(real_file_path, "%s/%s", real_path, child->d_name);
                         if ((stat(real_file_path, &file_stat) == 0) && S_ISDIR(file_stat.st_mode))
                         {
@@ -282,7 +282,8 @@ static int webgui_handler(struct mg_connection *conn, enum mg_event ev)
         {
 			mg_send_header(conn, "Content-Type", "application/json");
             mg_printf_data(conn,
-                           "{\"fps\": \"%f\", \"deflicker\": \"%d\", \"name_scheme\": %d, \"badpix\": %d, \"chroma_smooth\": %d, \"stripes\": %d, \"fix_pattern_noise\": %d, \"dual_iso\": %d, \"hdr_interpolation_method\": %d, \"hdr_no_alias_map\": %d, \"hdr_no_fullres\": %d}",
+                           "{\"fps\": \"%f\", \"deflicker\": \"%d\", \"name_scheme\": %d, \"badpix\": %d, \"chroma_smooth\": %d, \"stripes\": %d,\
+                            \"fix_pattern_noise\": %d, \"dual_iso\": %d, \"hdr_interpolation_method\": %d, \"hdr_no_alias_map\": %d, \"hdr_no_fullres\": %d, \"format_exr\": %d}",
                            mlvfs_config->fps,
                            mlvfs_config->deflicker,
                            mlvfs_config->name_scheme,
@@ -293,7 +294,8 @@ static int webgui_handler(struct mg_connection *conn, enum mg_event ev)
                            mlvfs_config->dual_iso,
                            mlvfs_config->hdr_interpolation_method,
                            mlvfs_config->hdr_no_alias_map,
-                           mlvfs_config->hdr_no_fullres);
+                           mlvfs_config->hdr_no_fullres,
+                           mlvfs_config->format_exr);
         }
         else if (strcmp(conn->uri, "/set_value") == 0)
         {
@@ -331,12 +333,14 @@ static int webgui_handler(struct mg_connection *conn, enum mg_event ev)
             
             mg_get_var(conn, "hdr_no_fullres", buf, sizeof(buf));
             if(strlen(buf) > 0) mlvfs_config->hdr_no_fullres = atoi(buf);
+
+            mg_get_var(conn, "format_exr", buf, sizeof(buf));
+            if(strlen(buf) > 0) mlvfs_config->format_exr = atoi(buf);
             
             mg_printf_data(conn, "%s", "{\"success\": true}");
         }
         else if (strcmp(conn->uri, "/jquery-1.12.0.min.js") == 0)
         {
-            printf("OK loadinf ajax/n");
             if (load_resource(&JQUERY, "data/jquery-1.12.0.min.js"))
             {
 				mg_send_header(conn, "Content-Type", "text/javascript");
@@ -370,7 +374,6 @@ static int webgui_handler(struct mg_connection *conn, enum mg_event ev)
         }
         else
         {
-            printf(">> %s\n", conn->uri);
             char * html = webgui_generate_html(conn->uri);
             if(html)
             {

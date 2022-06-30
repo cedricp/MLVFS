@@ -486,7 +486,7 @@ struct directory_entry {
 //CDNG tag codes
 enum
 {
-    tcTimeCodes                = 51043,
+    tcTimeCodes             = 51043,
     tcFrameRate             = 51044,
     tcTStop                 = 51058,
     tcReelName              = 51081,
@@ -702,17 +702,17 @@ size_t dng_get_header_data(struct frame_headers * frame_headers, uint8_t * outpu
         //number of frames since midnight
         int tc_frame = (int)frame_headers->vidf_hdr.frameNumber;// + (uint64_t)((frame_headers->rtci_hdr.tm_hour * 3600 + frame_headers->rtci_hdr.tm_min * 60 + frame_headers->rtci_hdr.tm_sec) * frame_headers->file_hdr.sourceFpsNom) / (uint64_t)frame_headers->file_hdr.sourceFpsDenom;
         
-        struct cam_matrices matricies = cam_matrices[0];
+        struct cam_matrices matrices = cam_matrices[0];
         for(int i = 0; i < COUNT(cam_matrices); i++)
         {
             if(!strcmp(cam_matrices[i].camera, model))
             {
-                matricies = cam_matrices[i];
+                matrices = cam_matrices[i];
                 break;
             }
         }
         int32_t wbal[6];
-        get_white_balance(frame_headers->wbal_hdr, wbal, &matricies);
+        get_white_balance(frame_headers->wbal_hdr, wbal, &matrices);
         
         struct directory_entry IFD0[IFD0_COUNT] =
         {
@@ -743,16 +743,16 @@ size_t dng_get_header_data(struct frame_headers * frame_headers, uint8_t * outpu
             {tcDefaultScale,                ttRational, RATIONAL_ENTRY(par, header, &data_offset, 4)},
             {tcDefaultCropOrigin,           ttShort,    2,      PACK(frame_headers->rawi_hdr.raw_info.crop.origin)},
             {tcDefaultCropSize,             ttShort,    2,      PACK2((frame_headers->rawi_hdr.raw_info.active_area.x2 - frame_headers->rawi_hdr.raw_info.active_area.x1), (frame_headers->rawi_hdr.raw_info.active_area.y2 - frame_headers->rawi_hdr.raw_info.active_area.y1))},
-            {tcColorMatrix1,                ttSRational,RATIONAL_ENTRY(matricies.ColorMatrix1, header, &data_offset, 18)},
-            {tcColorMatrix2,                ttSRational,RATIONAL_ENTRY(matricies.ColorMatrix2, header, &data_offset, 18)},
+            {tcColorMatrix1,                ttSRational,RATIONAL_ENTRY(matrices.ColorMatrix1, header, &data_offset, 18)},
+            {tcColorMatrix2,                ttSRational,RATIONAL_ENTRY(matrices.ColorMatrix2, header, &data_offset, 18)},
             {tcAsShotNeutral,               ttRational, RATIONAL_ENTRY(wbal, header, &data_offset, 6)},
             {tcBaselineExposure,            ttSRational,RATIONAL_ENTRY(basline_exposure, header, &data_offset, 2)},
             {tcCameraSerialNumber,          ttAscii,    STRING_ENTRY(serial, header, &data_offset)},
             {tcCalibrationIlluminant1,      ttShort,    1,      lsStandardLightA},
             {tcCalibrationIlluminant2,      ttShort,    1,      lsD65},
             {tcActiveArea,                  ttLong,     ARRAY_ENTRY(frame_headers->rawi_hdr.raw_info.dng_active_area, header, &data_offset, 4)},
-            {tcForwardMatrix1,              ttSRational,RATIONAL_ENTRY(matricies.ForwardMatrix1, header, &data_offset, 18)},
-            {tcForwardMatrix2,              ttSRational,RATIONAL_ENTRY(matricies.ForwardMatrix2, header, &data_offset, 18)},
+            {tcForwardMatrix1,              ttSRational,RATIONAL_ENTRY(matrices.ForwardMatrix1, header, &data_offset, 18)},
+            {tcForwardMatrix2,              ttSRational,RATIONAL_ENTRY(matrices.ForwardMatrix2, header, &data_offset, 18)},
             {tcTimeCodes,                   ttByte,     8,      add_timecode(frame_rate_f, tc_frame, header, &data_offset)},
             {tcFrameRate,                   ttSRational,RATIONAL_ENTRY(frame_rate, header, &data_offset, 2)},
             {tcReelName,                    ttAscii,    STRING_ENTRY(mlv_basename, header, &data_offset)},
