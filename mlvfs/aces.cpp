@@ -10,7 +10,7 @@ static void mulVectorArray ( uint16_t * data_in,
                      const uint32_t total,
                      const uint8_t dim,
                      const vector < vector < double > > & vct ) {
-    
+    #pragma omp parallel
     for(uint32_t i = 0; i < total; i+=dim ) {
         double data_hin0 = (double)data_in[i] * (1.0/65535.0);
         double data_hin1 = (double)data_in[i+1] * (1.0/65535.0);
@@ -25,6 +25,9 @@ static void mulVectorArray ( uint16_t * data_in,
     }
 }
 
+/*
+    Need to find a smarter way to get file size
+*/
 extern "C" size_t exr_get_size(struct frame_headers * frame_headers, const char* name)
 {
     vector < std::string > filenames;
@@ -66,7 +69,7 @@ extern "C" size_t exr_get_size(struct frame_headers * frame_headers, const char*
 	12 - Modified AHD intepolation (by Anton Petrusevich)
 	*/
 
-extern "C" void process_aces(struct frame_headers * frame_headers, struct image_buffer* image_buffer, const char* name)
+extern "C" void process_aces(struct frame_headers * frame_headers, struct image_buffer* image_buffer, const char* name, struct mlvfs* mlvfs)
 {
     LibRaw* raw_processor = new LibRaw;
     libraw_processed_image_t* image = NULL;
@@ -124,7 +127,7 @@ extern "C" void process_aces(struct frame_headers * frame_headers, struct image_
     mulVectorArray(in_buffer, out_buffer, pixel_count, 3, idt_matrix);
     
     vector < std::string > filenames;
-    filenames.push_back("/home/cedric/Desktop/test.exr");//name);
+    filenames.push_back(name);
 
     aces_Writer writer;
 
@@ -148,6 +151,7 @@ extern "C" void process_aces(struct frame_headers * frame_headers, struct image_
     writer.configure ( writeParams );
     writer.newImageObject ( dynamicMeta );
 
+    #pragma omp parallel
     for (int i=0;i < frame_headers->rawi_hdr.yRes; ++i){
         half* rgbData = out_buffer + frame_headers->rawi_hdr.xRes * 3 * i;
         writer.storeHalfRow ((halfBytes*)rgbData, i);

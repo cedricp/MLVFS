@@ -48,7 +48,7 @@
         font-size: 0.4em
     }
     </style>
-    <script src="jquery-1.12.0.min.js"></script>
+    <script src="/jquery-1.12.0.min.js"></script>
     <script>
     jQuery(function()
     {
@@ -61,6 +61,7 @@
             {
                 $('#fps').val(d.fps);
                 $('#deflicker').val(d.deflicker);
+                $('#white_balance').val(d.white_balance);
                 $('input:radio[name="name_scheme"][value=' + d.name_scheme + ']').prop('checked', true);
                 $('input:radio[name="format_exr"][value=' + d.format_exr + ']').prop('checked', true);
                 $('input:radio[name="badpix"][value=' + d.badpix + ']').prop('checked', true);
@@ -71,6 +72,11 @@
                 $('input:radio[name="hdr_no_alias_map"][value=' + d.hdr_no_alias_map + ']').prop('checked', true);
                 $('input:radio[name="hdr_no_fullres"][value=' + d.hdr_no_fullres + ']').prop('checked', true);
                 $('input:radio[name="fix_pattern_noise"][value=' + d.fix_pattern_noise + ']').prop('checked', true);
+                if (d.format_exr == 0){
+                    $('#exr_white_balance').hide();
+                } else {
+                    $('#exr_white_balance').show();
+                }
                 if (d.dual_iso == 2)
                 {
                     $('#hdr_interpolation_method').show();
@@ -117,6 +123,11 @@
                 $('#hdr_no_alias_map').hide();
                 $('#hdr_no_fullres').hide();
             }
+            if ($('input:radio[name="format_exr"]:checked').val() == 1){
+                $("#exr_white_balance").show();
+            } else {
+                $("#exr_white_balance").hide();
+            }
             return true;
         });
         $('#deflicker').on('change', function()
@@ -141,6 +152,19 @@
                 data:
                 {
                     "fps": $('#fps').val(),
+                }
+            });
+            return true;
+        });
+        $('#white_balance').on('change', function()
+        {
+            $.ajax(
+            {
+                url: '/set_value',
+                dataType: 'json',
+                data:
+                {
+                    "white_balance": $('#white_balance').val(),
                 }
             });
             return true;
@@ -175,7 +199,11 @@
             </tr>
             <tr>
                 <td>EXR ACES</td>
-                <<td><input type=radio name=format_exr value=0>Off</input><input type=radio name=format_exr value=1>On</input>
+                <td><input type=radio name=format_exr value=0>Off</input><input type=radio name=format_exr value=1>On</input>
+            </tr>
+            <tr id=exr_white_balance>
+                <td>EXR - White balance</td>
+                <td><input type=text id=white_balance size=8/> Override white balance temperature in Kelvin (0 = auto)</td>
             </tr>
             <tr>
                 <td>Deflicker</td>

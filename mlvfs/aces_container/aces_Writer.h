@@ -186,9 +186,11 @@ public:
 	~aces_Writer(); 
 
 	uint64 getOutputFileSize(){return outputFileSize;}
+	
 	char* getExrBuffer(){
 		oef.setChecksums();
 		char* buffer = pOutputBuffer;
+		// Lose ownership of the buffer
 		pOutputBuffer = NULL;
 		return buffer;
 	}

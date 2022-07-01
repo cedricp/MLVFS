@@ -43,19 +43,6 @@
 #define HEADER_SIZE 65536
 #define COUNT(x) ((int)(sizeof(x)/sizeof((x)[0])))
 
-//MLV WB modes
-enum
-{
-    WB_AUTO         = 0,
-    WB_SUNNY        = 1,
-    WB_SHADE        = 8,
-    WB_CLOUDY       = 2,
-    WB_TUNGSTEN     = 3,
-    WB_FLUORESCENT  = 4,
-    WB_FLASH        = 5,
-    WB_CUSTOM       = 6,
-    WB_KELVIN       = 9
-};
 
 struct cam_matrices {
     char * camera;

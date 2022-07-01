@@ -26,6 +26,21 @@
 #include "mlv.h"
 #include "mlvfs.h"
 
+//MLV WB modes
+enum
+{
+    WB_AUTO         = 0,
+    WB_SUNNY        = 1,
+    WB_SHADE        = 8,
+    WB_CLOUDY       = 2,
+    WB_TUNGSTEN     = 3,
+    WB_FLUORESCENT  = 4,
+    WB_FLASH        = 5,
+    WB_CUSTOM       = 6,
+    WB_KELVIN       = 9
+};
+
+
 size_t dng_get_header_data(struct frame_headers * frame_headers, uint8_t * output_buffer, off_t offset, size_t max_size, double fps_override, char * mlv_basename);
 size_t dng_get_header_size();
 size_t dng_get_image_data(struct frame_headers * frame_headers, uint16_t * packed_bits, uint8_t * output_buffer, off_t offset, size_t max_size);

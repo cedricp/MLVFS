@@ -632,8 +632,6 @@ size_t get_image_data(struct frame_headers * frame_headers, FILE * file, uint8_t
                 ret = lj92_open(&lj92_handle, (uint8_t *)&frame_buffer[0], (int)frame_size , &lj92_width, &lj92_height, &lj92_bitdepth, &lj92_components);
                 size_t out_size = lj92_width * lj92_height * lj92_components;
                 
-                // err_printf("LJ92: non-critical internal error occurred: frame size mismatch (%ix%i) (framesize=%d/%d) (bpp=%d)\n", lj92_width, lj92_height, frame_size, out_size, lj92_bitdepth);
-                
                 if(ret == LJ92_ERROR_NONE)
                 {
                     ret = lj92_decode(lj92_handle, (uint16_t*)output_buffer, out_size, 0, NULL, 0);
@@ -910,6 +908,12 @@ static int process_frame(struct image_buffer * image_buffer)
                 char * dir = find_last_separator(mlv_basename);
                 if(dir != NULL) *dir = 0;
             }
+
+            if (mlvfs.white_balance > 9500) mlvfs.white_balance = 9500;
+            if (string_ends_with(path, ".exr") && mlvfs.white_balance > 0){
+                frame_headers.wbal_hdr.wb_mode = WB_KELVIN;
+                frame_headers.wbal_hdr.kelvin  = mlvfs.white_balance;
+            }
             
             get_image_data(&frame_headers, chunk_files[frame_headers.fileNumber], (uint8_t*) image_buffer->data, 0, image_buffer->size);
             if(mlvfs.deflicker) deflicker(&frame_headers, mlvfs.deflicker, image_buffer->data, image_buffer->size);
@@ -973,7 +977,7 @@ static int process_frame(struct image_buffer * image_buffer)
 
         if ( string_ends_with(path, ".exr") )
         {
-            process_aces(&frame_headers, image_buffer, mlv_filename);
+            process_aces(&frame_headers, image_buffer, mlv_filename, &mlvfs);
         }
 
         free(mlv_filename);
