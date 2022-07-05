@@ -611,6 +611,10 @@ size_t dng_get_header_data(struct frame_headers * frame_headers, uint8_t * outpu
     size_t position = 0;
     if(header)
     {
+        int compressed = 0;
+        if (frame_headers->file_hdr.videoClass & MLV_VIDEO_CLASS_FLAG_LJ92){
+            compressed = 1;
+        }
         memset(header, 0 , header_size);
         memcpy(header + position, tiff_header, sizeof(tiff_header));
         position += sizeof(tiff_header);
@@ -707,7 +711,7 @@ size_t dng_get_header_data(struct frame_headers * frame_headers, uint8_t * outpu
             {tcImageWidth,                  ttLong,     1,      frame_headers->rawi_hdr.xRes},
             {tcImageLength,                 ttLong,     1,      frame_headers->rawi_hdr.yRes},
             {tcBitsPerSample,               ttShort,    1,      16},
-            {tcCompression,                 ttShort,    1,      ccUncompressed},
+            {tcCompression,                 ttShort,    1,      compressed == 1 ? ccJPEG : ccUncompressed},
             {tcPhotometricInterpretation,   ttShort,    1,      piCFA},
             {tcFillOrder,                   ttShort,    1,      1},
             {tcMake,                        ttAscii,    STRING_ENTRY(make, header, &data_offset)},
@@ -865,6 +869,9 @@ size_t dng_get_image_data(struct frame_headers * frame_headers, uint16_t * packe
  */
 size_t dng_get_image_size(struct frame_headers * frame_headers)
 {
+    if (frame_headers->file_hdr.videoClass & MLV_VIDEO_CLASS_FLAG_LJ92){
+        return frame_headers->vidf_hdr.blockSize - frame_headers->vidf_hdr.frameSpace + sizeof(mlv_vidf_hdr_t);
+    }
     return frame_headers->rawi_hdr.xRes * frame_headers->rawi_hdr.yRes * 2;
 }
 

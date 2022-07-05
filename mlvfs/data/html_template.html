@@ -62,6 +62,8 @@
                 $('#fps').val(d.fps);
                 $('#deflicker').val(d.deflicker);
                 $('#white_balance').val(d.white_balance);
+                $('#headroom').val(d.headroom);
+                $('#highlight').val(d.highlight);
                 $('input:radio[name="name_scheme"][value=' + d.name_scheme + ']').prop('checked', true);
                 $('input:radio[name="format_exr"][value=' + d.format_exr + ']').prop('checked', true);
                 $('input:radio[name="badpix"][value=' + d.badpix + ']').prop('checked', true);
@@ -72,10 +74,17 @@
                 $('input:radio[name="hdr_no_alias_map"][value=' + d.hdr_no_alias_map + ']').prop('checked', true);
                 $('input:radio[name="hdr_no_fullres"][value=' + d.hdr_no_fullres + ']').prop('checked', true);
                 $('input:radio[name="fix_pattern_noise"][value=' + d.fix_pattern_noise + ']').prop('checked', true);
+                $('input:radio[name="debayer"][value=' + d.debayer + ']').prop('checked', true);
                 if (d.format_exr == 0){
                     $('#exr_white_balance').hide();
+                    $('#exr_headroom').hide();
+                    $('#exr_highlight').hide();
+                    $('#debayer').hide();
                 } else {
                     $('#exr_white_balance').show();
+                    $('#exr_headroom').show();
+                    $('#exr_highlight').show();                
+                    $('#debayer').show();  
                 }
                 if (d.dual_iso == 2)
                 {
@@ -108,7 +117,8 @@
                     "hdr_interpolation_method": $('input:radio[name=hdr_interpolation_method]:checked').val(),
                     "hdr_no_alias_map": $('input:radio[name=hdr_no_alias_map]:checked').val(),
                     "hdr_no_fullres": $('input:radio[name=hdr_no_fullres]:checked').val(),
-                    "fix_pattern_noise": $('input:radio[name=fix_pattern_noise]:checked').val()
+                    "fix_pattern_noise": $('input:radio[name=fix_pattern_noise]:checked').val(),
+                    "debayer": $('input:radio[name=debayer]:checked').val(),
                 }
             });
             if ($('input:radio[name=dual_iso]:checked').val() == 2)
@@ -125,8 +135,14 @@
             }
             if ($('input:radio[name="format_exr"]:checked').val() == 1){
                 $("#exr_white_balance").show();
+                $("#exr_headroom").show();
+                $("#exr_highlight").show();
+                $("#debayer").show();
             } else {
                 $("#exr_white_balance").hide();
+                $("#exr_headroom").hide();
+                $("#exr_highlight").hide();
+                $("#debayer").hide();
             }
             return true;
         });
@@ -169,6 +185,32 @@
             });
             return true;
         });
+        $('#headroom').on('change', function()
+        {
+            $.ajax(
+            {
+                url: '/set_value',
+                dataType: 'json',
+                data:
+                {
+                    "headroom": $('#headroom').val(),
+                }
+            });
+            return true;
+        });
+        $('#highlight').on('change', function()
+        {
+            $.ajax(
+            {
+                url: '/set_value',
+                dataType: 'json',
+                data:
+                {
+                    "highlight": $('#highlight').val(),
+                }
+            });
+            return true;
+        });
     });
     $(document).ready(function()
     {
@@ -204,6 +246,19 @@
             <tr id=exr_white_balance>
                 <td>EXR - White balance</td>
                 <td><input type=text id=white_balance size=8/> Override white balance temperature in Kelvin (0 = auto)</td>
+            </tr>
+            <tr id=exr_headroom>
+                <td>EXR - Headroom</td>
+                <td><input type=text id=headroom size=8/> ACES headroom</td>
+            </tr>
+            <tr id=exr_highlight>
+                <td>EXR - Highlight reconstruction</td>
+                <td><input type=text id=highlight size=8/> Highlight reconstruction level  (0=clip, 1=unclip, 2=blend, 3+=rebuild)</td>
+            </tr>
+            <tr>
+                <td>EXR - Debayer method</td>
+                <td><input type=radio name=debayer value=0>Linear</input><input type=radio name=debayer value=1>VNG</input><input type=radio name=debayer value=2>PPG</input>
+                </input><input type=radio name=debayer value=3>AHD</input></input><input type=radio name=debayer value=4>DCB</input></td>
             </tr>
             <tr>
                 <td>Deflicker</td>

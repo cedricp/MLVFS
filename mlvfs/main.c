@@ -620,7 +620,8 @@ size_t get_image_data(struct frame_headers * frame_headers, FILE * file, uint8_t
             }
             else if(lj92_compressed)
             {
-                int ret;
+                fread(output_buffer, sizeof(uint16_t), (size_t)frame_size, file);
+/*                 int ret;
                 lj92 lj92_handle;
                 int lj92_width = 0;
                 int lj92_height = 0;
@@ -646,7 +647,7 @@ size_t get_image_data(struct frame_headers * frame_headers, FILE * file, uint8_t
                     err_printf("LJ92: Open failed (%d)\n", ret);
                 }
                 result = ret;
-                lj92_close(lj92_handle);
+                lj92_close(lj92_handle); */
             }
         }
         free(frame_buffer);
@@ -901,6 +902,7 @@ static int process_frame(struct image_buffer * image_buffer)
             image_buffer->header_size = dng_get_header_size();
             image_buffer->header = (uint8_t*)malloc(image_buffer->header_size + image_buffer->size);
             image_buffer->data = (uint16_t*)(image_buffer->header + image_buffer->header_size);
+            image_buffer->data_flag = 1;
             
             uint8_t* mlv_basename = copy_string(image_buffer->dng_filename);
             if(mlv_basename != NULL)
@@ -978,6 +980,7 @@ static int process_frame(struct image_buffer * image_buffer)
         if ( string_ends_with(path, ".exr") )
         {
             process_aces(&frame_headers, image_buffer, mlv_filename, &mlvfs);
+            image_buffer->data_flag = 0;
         }
 
         free(mlv_filename);
@@ -1516,14 +1519,14 @@ static int mlvfs_read(const char *path, char *buf, size_t size, FUSE_OFF_T offse
             struct image_buffer * image_buffer = get_or_create_image_buffer(path, &process_frame, &was_created);
             if (!image_buffer)
             {
-                err_printf("GIF image_buffer is NULL\n");
+                err_printf("EXR image_buffer is NULL\n");
                 free(mlv_filename);
                 free(path_in_mlv);
                 return 0;
             }
             if (!image_buffer->data)
             {
-                err_printf("GIF image_buffer->data is NULL\n");
+                err_printf("EXR image_buffer->data is NULL\n");
                 free(mlv_filename);
                 free(path_in_mlv);
                 return 0;
@@ -1952,6 +1955,10 @@ int main(int argc, char **argv)
 {
     mlvfs.mlv_path = NULL;
     mlvfs.chroma_smooth = 0;
+    mlvfs.white_balance = 0;
+    mlvfs.headroom = 4.5f;
+    mlvfs.highlight = 1;
+    mlvfs.debayer = 1;
 
     mlvfs_args_init();
 

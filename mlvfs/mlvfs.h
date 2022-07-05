@@ -43,6 +43,9 @@ struct mlvfs
     int hdr_no_fullres;
     int hdr_no_alias_map;
     int white_balance;
+    float headroom;
+    int highlight;
+    int debayer;
     double fps;
     int deflicker;
     int fix_pattern_noise;
