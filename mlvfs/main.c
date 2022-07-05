@@ -582,7 +582,7 @@ size_t get_image_data(struct frame_headers * frame_headers, FILE * file, uint8_t
     if(lzma_compressed || lj92_compressed)
     {
         file_set_pos(file, frame_headers->position + frame_headers->vidf_hdr.frameSpace + sizeof(mlv_vidf_hdr_t), SEEK_SET);
-        size_t frame_size = frame_headers->vidf_hdr.blockSize - frame_headers->vidf_hdr.frameSpace + sizeof(mlv_vidf_hdr_t);
+        size_t frame_size = frame_headers->vidf_hdr.blockSize - (frame_headers->vidf_hdr.frameSpace + sizeof(mlv_vidf_hdr_t));
 
         uint8_t * frame_buffer = malloc(frame_size);
         if (!frame_buffer)
@@ -620,8 +620,7 @@ size_t get_image_data(struct frame_headers * frame_headers, FILE * file, uint8_t
             }
             else if(lj92_compressed)
             {
-                fread(output_buffer, sizeof(uint16_t), (size_t)frame_size, file);
-/*                 int ret;
+                int ret;
                 lj92 lj92_handle;
                 int lj92_width = 0;
                 int lj92_height = 0;
@@ -630,7 +629,7 @@ size_t get_image_data(struct frame_headers * frame_headers, FILE * file, uint8_t
                 int video_xRes = frame_headers->rawi_hdr.xRes;
                 int video_yRes = frame_headers->rawi_hdr.yRes;
 
-                ret = lj92_open(&lj92_handle, (uint8_t *)&frame_buffer[0], (int)frame_size , &lj92_width, &lj92_height, &lj92_bitdepth, &lj92_components);
+                ret = lj92_open(&lj92_handle, frame_buffer, (int)frame_size , &lj92_width, &lj92_height, &lj92_bitdepth, &lj92_components);
                 size_t out_size = lj92_width * lj92_height * lj92_components;
                 
                 if(ret == LJ92_ERROR_NONE)
@@ -647,7 +646,7 @@ size_t get_image_data(struct frame_headers * frame_headers, FILE * file, uint8_t
                     err_printf("LJ92: Open failed (%d)\n", ret);
                 }
                 result = ret;
-                lj92_close(lj92_handle); */
+                lj92_close(lj92_handle);
             }
         }
         free(frame_buffer);
