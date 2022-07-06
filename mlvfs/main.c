@@ -1004,6 +1004,7 @@ int create_preview(struct image_buffer * image_buffer)
             image_buffer->data = (uint16_t*)malloc(image_buffer->size);
             image_buffer->header_size = 0;
             image_buffer->header = NULL;
+            image_buffer->data_flag = 0;
             gif_get_data(mlv_filename, (uint8_t*)image_buffer->data, 0, image_buffer->size);
         }
         free(mlv_filename);

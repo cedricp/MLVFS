@@ -793,7 +793,6 @@ size_t dng_get_header_size()
 /**
  * Inline routine that really unpacks bits to 16 bit little endian
  * It only works on LE machines. Needs to be changed for BE machines.
- * @param frame_headers The MLV blocks associated with the frame
  * @param packed_bits A buffer containing the packed imaged data
  * @param output_buffer The buffer where the result will be written
  * @param offset The offset into the frame to read
@@ -801,7 +800,7 @@ size_t dng_get_header_size()
  * @param bpp raw data bits per pixel
  * @return The number of bytes written (just max_size)
  */
-static FORCE_INLINE size_t dng_get_image_data_inline(struct frame_headers * frame_headers, uint16_t * packed_bits, uint8_t * output_buffer, off_t offset, size_t max_size, int32_t bpp)
+static FORCE_INLINE size_t dng_get_image_data_inline(uint16_t * packed_bits, uint8_t * output_buffer, off_t offset, size_t max_size, int32_t bpp)
 {
     uint32_t pixel_start_index = (uint32_t)MAX(0, offset) / 2; //lets hope offsets are always even for now
     uint32_t pixel_start_address = pixel_start_index * bpp / 16;
@@ -849,16 +848,16 @@ size_t dng_get_image_data(struct frame_headers * frame_headers, uint16_t * packe
     switch (bpp)
     {
         case 8:
-            return dng_get_image_data_inline(frame_headers, packed_bits, output_buffer, offset, max_size, 8);
+            return dng_get_image_data_inline(packed_bits, output_buffer, offset, max_size, 8);
         case 10:
-            return dng_get_image_data_inline(frame_headers, packed_bits, output_buffer, offset, max_size, 10);
+            return dng_get_image_data_inline(packed_bits, output_buffer, offset, max_size, 10);
         case 12:
-            return dng_get_image_data_inline(frame_headers, packed_bits, output_buffer, offset, max_size, 12);
+            return dng_get_image_data_inline(packed_bits, output_buffer, offset, max_size, 12);
         case 14:
-            return dng_get_image_data_inline(frame_headers, packed_bits, output_buffer, offset, max_size, 14);
+            return dng_get_image_data_inline(packed_bits, output_buffer, offset, max_size, 14);
 
         default:
-            return dng_get_image_data_inline(frame_headers, packed_bits, output_buffer, offset, max_size, bpp);
+            return dng_get_image_data_inline(packed_bits, output_buffer, offset, max_size, bpp);
     }
 }
 

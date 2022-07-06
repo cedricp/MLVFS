@@ -179,7 +179,9 @@ void free_all_image_buffers()
     {
         next = current->next;
         free(current->dng_filename);
-        free(current->data);
+        if (current->data_flag == 0){
+            free(current->data);
+        }
         free(current->header);
         free(current);
         current = next;
