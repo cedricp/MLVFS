@@ -2,8 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 PROJECT(mlvfs)
 
-FILE(GLOB SOURCES dng.c index.c wav.c stripes.c cs.c amaze_demosaic_RT.c hdr.c histogram.c webgui.c resource_manager.c gif.c patternnoise.c main.c aces.cpp)
-
+FILE(GLOB SOURCES dng.c index.c wav.c  webgui.c resource_manager.c gif.c main.c)
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
 
 EXECUTE_PROCESS(COMMAND git describe --long --dirty --always --tags OUTPUT_VARIABLE GIT_VERSION WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
@@ -29,7 +28,8 @@ ADD_SUBDIRECTORY(mongoose)
 ADD_SUBDIRECTORY(LZMA)
 ADD_SUBDIRECTORY(slre)
 ADD_SUBDIRECTORY(lj92)
-
+ADD_SUBDIRECTORY(postprocess)
+ADD_SUBDIRECTORY(dng)
 
 MESSAGE(NOTICE "IlmBase include: ${IlmBase_INCLUDE_DIRS}")
 MESSAGE(NOTICE "IlmBase libraries : ${IlmBase_LIBRARY}")
@@ -39,7 +39,7 @@ SET (CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 ADD_EXECUTABLE(mlvfs ${SOURCES})
 SET_PROPERTY(TARGET mlvfs PROPERTY C_STANDARD 99)
-TARGET_INCLUDE_DIRECTORIES(mlvfs PUBLIC ${IlmBase_INCLUDE_DIRS} ${LibRaw_INCLUDE_DIR})
-TARGET_LINK_LIBRARIES(mlvfs mongoose lzma slre lj92 aces_container aces_idt ${EXTERNAL_LIBRARIES})
+TARGET_INCLUDE_DIRECTORIES(mlvfs PUBLIC postprocess ${IlmBase_INCLUDE_DIRS} ${LibRaw_INCLUDE_DIR})
+TARGET_LINK_LIBRARIES(mlvfs postprocess dng mongoose lzma slre lj92 aces_idt aces_container ${EXTERNAL_LIBRARIES})
 
 INSTALL(TARGETS mlvfs RUNTIME DESTINATION bin)
