@@ -167,6 +167,7 @@ extern "C" void process_aces(struct frame_headers * frame_headers, struct image_
 
     image_buffer->size = writer.getOutputFileSize();
     image_buffer->data = (uint16_t*)writer.getExrBuffer();
+    image_buffer->free_flag = 1;
 
     delete raw_processor;
 }

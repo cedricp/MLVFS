@@ -49,6 +49,7 @@ struct mlvfs
     double fps;
     int deflicker;
     int fix_pattern_noise;
+    int compress_dng;
     int version;
 };
 

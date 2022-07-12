@@ -38,9 +38,9 @@ struct image_buffer
     size_t size;
     uint8_t * header;
     uint16_t * data;
+    int free_flag;
     LOCK_T mutex;
     int in_use;
-    int data_flag;
 };
 
 int create_preview(struct image_buffer * image_buffer);

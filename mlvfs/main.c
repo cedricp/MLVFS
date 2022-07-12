@@ -574,11 +574,7 @@ size_t get_image_data(struct frame_headers * frame_headers, FILE * file, uint8_t
 
     size_t result = 0;
     int bpp = frame_headers->rawi_hdr.raw_info.bits_per_pixel;
-    uint64_t pixel_start_index = MAX(0, offset) / 2; //lets hope offsets are always even for now
-    uint64_t pixel_start_address = pixel_start_index * bpp / 16;
-    size_t output_size = max_size - (offset < 0 ? (size_t)(-offset) : 0);
-    uint64_t pixel_count = output_size / 2;
-    uint64_t packed_size = (pixel_count + 2) * bpp / 16;
+
     if(lzma_compressed || lj92_compressed)
     {
         file_set_pos(file, frame_headers->position + frame_headers->vidf_hdr.frameSpace + sizeof(mlv_vidf_hdr_t), SEEK_SET);
@@ -654,10 +650,16 @@ size_t get_image_data(struct frame_headers * frame_headers, FILE * file, uint8_t
     }
     else
     {
+        uint64_t pixel_start_index = MAX(0, offset) / 2; //lets hope offsets are always even for now
+        uint64_t pixel_start_address = pixel_start_index * bpp / 16;
+        size_t output_size = max_size - (offset < 0 ? (size_t)(-offset) : 0);
+
+        uint64_t pixel_count = output_size / 2;
+        uint64_t packed_size = (pixel_count + 2) * bpp / 16;
         uint16_t * packed_bits = calloc((size_t)(packed_size * 2), 1);
+        
         if(packed_bits)
         {
-            
             file_set_pos(file, frame_headers->position + frame_headers->vidf_hdr.frameSpace + sizeof(mlv_vidf_hdr_t) + pixel_start_address * 2, SEEK_SET);
             fread(packed_bits, sizeof(uint16_t), (size_t)packed_size, file);
             if(ferror(file))
@@ -885,6 +887,7 @@ static int process_frame(struct image_buffer * image_buffer)
     {
         int frame_number = get_mlv_frame_number(path);
         struct frame_headers frame_headers;
+        int is_exr = string_ends_with(path, ".exr");
         if(mlv_get_frame_headers(mlv_filename, frame_number, &frame_headers))
         {
             FILE **chunk_files = NULL;
@@ -901,7 +904,7 @@ static int process_frame(struct image_buffer * image_buffer)
             image_buffer->header_size = dng_get_header_size();
             image_buffer->header = (uint8_t*)malloc(image_buffer->header_size + image_buffer->size);
             image_buffer->data = (uint16_t*)(image_buffer->header + image_buffer->header_size);
-            image_buffer->data_flag = 1;
+            image_buffer->free_flag = 0;
             
             uint8_t* mlv_basename = copy_string(image_buffer->dng_filename);
             if(mlv_basename != NULL)
@@ -910,15 +913,18 @@ static int process_frame(struct image_buffer * image_buffer)
                 if(dir != NULL) *dir = 0;
             }
 
-            if (mlvfs.white_balance > 9500) mlvfs.white_balance = 9500;
-            if (string_ends_with(path, ".exr") && mlvfs.white_balance > 0){
-                frame_headers.wbal_hdr.wb_mode = WB_KELVIN;
-                frame_headers.wbal_hdr.kelvin  = mlvfs.white_balance;
+            if (mlvfs.white_balance != 0){
+                if (mlvfs.white_balance > 9500) mlvfs.white_balance = 9500;
+                if (mlvfs.white_balance < 100) mlvfs.white_balance = 100;
+                if (string_ends_with(path, ".exr") && mlvfs.white_balance > 0){
+                    frame_headers.wbal_hdr.wb_mode = WB_KELVIN;
+                    frame_headers.wbal_hdr.kelvin  = mlvfs.white_balance;
+                }
             }
             
             get_image_data(&frame_headers, chunk_files[frame_headers.fileNumber], (uint8_t*) image_buffer->data, 0, image_buffer->size);
             if(mlvfs.deflicker) deflicker(&frame_headers, mlvfs.deflicker, image_buffer->data, image_buffer->size);
-            dng_get_header_data(&frame_headers, image_buffer->header, 0, image_buffer->header_size, mlvfs.fps, mlv_basename);
+            dng_get_header_data(&frame_headers, image_buffer->header, 0, image_buffer->header_size, mlvfs.fps, mlv_basename, mlvfs.compress_dng && !is_exr);
             
             if(mlvfs.fix_pattern_noise)
             {
@@ -938,7 +944,7 @@ static int process_frame(struct image_buffer * image_buffer)
             if(is_dual_iso)
             {
                 //redo the dng header b/c white and black levels will be different
-                dng_get_header_data(&frame_headers, image_buffer->header, 0, image_buffer->size, mlvfs.fps, mlv_basename);
+                dng_get_header_data(&frame_headers, image_buffer->header, 0, image_buffer->size, mlvfs.fps, mlv_basename, mlvfs.compress_dng && !is_exr);
             }
             else
             {
@@ -979,7 +985,14 @@ static int process_frame(struct image_buffer * image_buffer)
         if ( string_ends_with(path, ".exr") )
         {
             process_aces(&frame_headers, image_buffer, mlv_filename, &mlvfs);
-            image_buffer->data_flag = 0;
+        } else if (mlvfs.compress_dng){
+            uint8_t *encoded = NULL;
+            int encoded_size;
+            lj92_encode(image_buffer->data, frame_headers.rawi_hdr.xRes, frame_headers.rawi_hdr.yRes, 16, image_buffer->size, 0, NULL, 0, &encoded, &encoded_size);
+            image_buffer->header = realloc(image_buffer->header, image_buffer->header_size);
+            image_buffer->data = (uint16_t*)encoded;
+            image_buffer->size = encoded_size;
+            image_buffer->free_flag = 1;
         }
 
         free(mlv_filename);
@@ -1004,7 +1017,6 @@ int create_preview(struct image_buffer * image_buffer)
             image_buffer->data = (uint16_t*)malloc(image_buffer->size);
             image_buffer->header_size = 0;
             image_buffer->header = NULL;
-            image_buffer->data_flag = 0;
             gif_get_data(mlv_filename, (uint8_t*)image_buffer->data, 0, image_buffer->size);
         }
         free(mlv_filename);
@@ -1959,6 +1971,7 @@ int main(int argc, char **argv)
     mlvfs.headroom = 4.5f;
     mlvfs.highlight = 1;
     mlvfs.debayer = 1;
+    mlvfs.compress_dng = 0;
 
     mlvfs_args_init();
 

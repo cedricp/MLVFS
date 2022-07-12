@@ -142,9 +142,7 @@ static void free_image_buffer(struct image_buffer * image_buffer)
     DESTROY_LOCK(image_buffer->mutex);
     free(image_buffer->dng_filename);
     free(image_buffer->header);
-    if (image_buffer->data_flag == 0){
-        free(image_buffer->data);
-    }
+    if(image_buffer->free_flag) free(image_buffer->data);
     free(image_buffer);
     image_buffer_count--;
 }
@@ -179,9 +177,7 @@ void free_all_image_buffers()
     {
         next = current->next;
         free(current->dng_filename);
-        if (current->data_flag == 0){
-            free(current->data);
-        }
+        if(current->free_flag) free(current->data);
         free(current->header);
         free(current);
         current = next;

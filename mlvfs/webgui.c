@@ -284,7 +284,7 @@ static int webgui_handler(struct mg_connection *conn, enum mg_event ev)
             mg_printf_data(conn,
                            "{\"fps\": \"%f\", \"deflicker\": \"%d\", \"name_scheme\": %d, \"badpix\": %d, \"chroma_smooth\": %d, \"stripes\": %d,\
                             \"fix_pattern_noise\": %d, \"dual_iso\": %d, \"hdr_interpolation_method\": %d, \"hdr_no_alias_map\": %d, \"hdr_no_fullres\": %d, \"format_exr\": %d, \"white_balance\": \"%d\",\
-                            \"headroom\": %f, \"highlight\": %d, \"debayer\": %d}",
+                            \"headroom\": %f, \"highlight\": %d, \"debayer\": %d, \"compress_dng\": %d}",
                            mlvfs_config->fps,
                            mlvfs_config->deflicker,
                            mlvfs_config->name_scheme,
@@ -300,7 +300,8 @@ static int webgui_handler(struct mg_connection *conn, enum mg_event ev)
                            mlvfs_config->white_balance,
                            mlvfs_config->headroom,
                            mlvfs_config->highlight,
-                           mlvfs_config->debayer);
+                           mlvfs_config->debayer,
+                           mlvfs_config->compress_dng);
         }
         else if (strcmp(conn->uri, "/set_value") == 0)
         {
@@ -353,6 +354,9 @@ static int webgui_handler(struct mg_connection *conn, enum mg_event ev)
 
             mg_get_var(conn, "debayer", buf, sizeof(buf));
             if(strlen(buf) > 0) mlvfs_config->debayer = atoi(buf);
+
+            mg_get_var(conn, "compress_dng", buf, sizeof(buf));
+            if(strlen(buf) > 0) mlvfs_config->compress_dng = atoi(buf);
             
             mg_printf_data(conn, "%s", "{\"success\": true}");
         }
